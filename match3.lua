@@ -13,7 +13,7 @@ function init() -- создание поля
 end
 
 function tick() -- выполнение действий на поле
-	io.write(string.format("\nTick %d\n", tickCount))
+	io.write(string.format("\nTick %d detections\n", tickCount))
 	tickCount = tickCount + 1
 
 	-- twoCellsmatches = {}
@@ -47,7 +47,8 @@ function tick() -- выполнение действий на поле
 	local _changes -- переменная для запуска следующего тика, если есть новые изменения
 
 	_changes = tickClearMatches() -- функция возвращает, были ли удаления
-	
+
+	tickGravity()
 	
 	-- if _changes then
 		-- tick()
@@ -107,6 +108,30 @@ function tickClearMatches()
 	return _changes
 end
 
+function tickGravity()
+	for _x = 0, GRID_SIZE.x do
+		local _everythingFell = true
+		local _y = GRID_SIZE.y
+		while(_y >= 0) do
+			local _cell = "x" .. _x .. "y" .. _y
+			if not grid[_cell] then
+				local _cellUpper = "x" .. _x .. "y" .. (_y - 1)
+				if _everythingFell and grid[_cellUpper] then
+					_everythingFell = false
+				end
+				grid[_cell] = grid[_cellUpper]
+				grid[_cellUpper] = nil
+			end
+			if _y == 0 and not _everythingFell then
+				_y = GRID_SIZE.y
+				_everythingFell = true
+			else
+				_y = _y - 1
+			end
+		end
+	end
+end
+
 function move(_from, _to) -- выполнение хода игрока
 	print(_from)
 end
@@ -144,7 +169,7 @@ end
 
 init()
 -- tick()
--- dump()
+dump()
 
 while(true) do
 	io.write("Temp input ")
