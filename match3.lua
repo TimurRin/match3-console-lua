@@ -9,16 +9,17 @@ function init() -- создание поля
 	grid = {} -- в каждой клетке поля будет указан индекс, ссылающийся на таблицу crystals
 	matches = {} -- готовые для удаления комбинации
 
-	mix() -- выставляем кристаллы 
+	mix() -- выставляем кристаллы
 end
 
 function tick() -- выполнение действий на поле
-	io.write(string.format("\nTick %d detections\n", tickCount))
 	tickCount = tickCount + 1
+	-- io.write(string.format("\nTick %d\n", tickCount))
+	io.write(string.format("\n============\n[Tick %d]\n============\n", tickCount))
 
 	-- twoCellsmatches = {}
 	-- local _twoCellsmatchesFound = {}
-	
+
 	-- for _y = 0, GRID_SIZE.y do
 		-- for _x = 0, GRID_SIZE.x do
 			-- local _cell = "x" .. _x .. "y" .. _y
@@ -35,12 +36,13 @@ function tick() -- выполнение действий на поле
 			-- end
 		-- end
 	-- end
-	
+
 	-- ищем комбинации
-	
+
 	matches = {} -- обнуляем таблицу с комбинациями
 
-	 -- проверяем допустимые комбинации по осям
+	-- проверяем допустимые комбинации по осям
+	print("Detected matches:")
 	tickMatchCheckGrid("x")
 	tickMatchCheckGrid("y")
 
@@ -48,11 +50,11 @@ function tick() -- выполнение действий на поле
 
 	_changes = tickClearMatches() -- функция возвращает, были ли удаления
 
-	tickGravity()
-	
-	-- if _changes then
-		-- tick()
-	-- end
+	if _changes then
+		tickGravity()
+		mix(true)
+		tick()
+	end
 end
 
 function tickMatchCheckGrid(_typeA) -- проверка игрового поля на комбинации. функция необходима для недопуска повторения похожего кода, т.к. нам нужно последовательно проверить слева-справа и сверху-вниз
@@ -74,7 +76,7 @@ end
 function tickMatchCheckCell(_cell, _params) -- последовательная проверка каждой клетки оси вынесено в отдельную функцию для наглядности
 	local _crystalID = grid[_cell]
 	local _match = #matches
-	if _params.crystalID ~= _crystalID then
+	if not _crystalID or _params.crystalID ~= _crystalID then
 		if _match == 0 then
 			_match = 1
 		elseif matches[_match] and #matches[_match] >= 3 then
@@ -91,9 +93,11 @@ end
 
 function tickClearMatches()
 	local _changes
-	
+
 	local _superCrystalCheck = {}
-	
+
+	print(string.format("Clearing %d match(es)...", #matches))
+
 	for _index, _matchCell in ipairs(matches) do
 		for _index2, _cell in ipairs(_matchCell) do
 			_changes = true
@@ -105,10 +109,13 @@ function tickClearMatches()
 		end
 	end
 	
+	dump()
+
 	return _changes
 end
 
 function tickGravity()
+	print("Drop crystals...")
 	for _x = 0, GRID_SIZE.x do
 		local _everythingFell = true
 		local _y = GRID_SIZE.y
@@ -130,24 +137,30 @@ function tickGravity()
 			end
 		end
 	end
+	dump()
 end
 
 function move(_from, _to) -- выполнение хода игрока
 	print(_from)
 end
 
-function mix() -- перемешивание поля
+function mix(_emptyOnly) -- перемешивание поля
+	print((_emptyOnly and "Adding" or "Creating") .. " crystals...")
 	for _y = 0, GRID_SIZE.y do
 		for _x = 0, GRID_SIZE.x do
 			local _cell = "x" .. _x .. "y" .. _y
-			local _crystalID = math.random(#crystals) -- получаем случайный кристалл
-			grid[_cell] = _crystalID
+			if not _emptyOnly or not grid[_cell] then
+				local _crystalID = math.random(#crystals) -- получаем случайный кристалл
+				grid[_cell] = _crystalID
+			end
 		end
 	end
+	dump()
 end
 
 function dump() -- вывод поля на экран
-	io.write(string.format("\n============\n[Tick %d | Ready matches: %d]\n============\n", tickCount, #matches))
+	-- io.write(string.format("\n============\n[Tick %d | Ready matches: %d]\n============\n", tickCount, #matches))
+	io.write("\n")
 	for _y = -2, GRID_SIZE.y do
 		for _x = -2, GRID_SIZE.x do
 			if _y >= 0 and _x >= 0 then
@@ -164,12 +177,13 @@ function dump() -- вывод поля на экран
 		end
 		io.write("\n")
 	end
-	io.write("\n\n")
+	-- io.write("\n\n")
+	io.write("\n")
 end
 
 init()
 -- tick()
-dump()
+-- dump()
 
 while(true) do
 	io.write("Temp input ")
@@ -178,5 +192,5 @@ while(true) do
 	-- dump()
 	tick()
 	-- print("AFTER REMOVAL")
-	dump()
+	-- dump()
 end
