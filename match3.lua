@@ -57,34 +57,34 @@ end
 function tickMatchCheckGrid(_typeA) -- проверка игрового поля на комбинации. функция необходима для недопуска повторения похожего кода, т.к. нам нужно последовательно проверить слева-справа и сверху-вниз
 	local _typeB = _typeA == "y" and "x" or "y"
 	for _a = 0, GRID_SIZE[_typeA] do
-		local _match = {type = _typeA, crystalID = nil}
+		local _params = {type = _typeA, crystalID = nil}
 
 		for _b = 0, GRID_SIZE[_typeB] do
 			local _cell = "x" .. (_typeA == "y" and _b or _a) .. "y" .. (_typeA == "y" and _a or _b)
-			tickMatchCheckCell(_cell, _match)
+			tickMatchCheckCell(_cell, _params)
 		end
 
-		if #matches[#matches] < 3 then
+		if matches[#matches] and (#matches[#matches] < 3) then
 			matches[#matches] = nil
 		end
 	end
 end
 
-function tickMatchCheckCell(_cell, _match) -- последовательная проверка каждой клетки оси вынесено в отдельную функцию для наглядности
+function tickMatchCheckCell(_cell, _params) -- последовательная проверка каждой клетки оси вынесено в отдельную функцию для наглядности
 	local _crystalID = grid[_cell]
 	local _match = #matches
-	if _match.crystalID ~= _crystalID then
+	if _params.crystalID ~= _crystalID then
 		if _match == 0 then
 			_match = 1
-		elseif #matches[_match] >= 3 then
+		elseif matches[_match] and #matches[_match] >= 3 then
 			_match = #matches + 1
 		end
-		_match.crystalID = _crystalID
+		_params.crystalID = _crystalID
 		matches[_match] = {}
 	end
 	matches[_match][#matches[_match]+1] = _cell
 	if #matches[_match] >= 3 then
-		print(string.format("%s %s: crystal %s spree %d", _match.type, _cell, crystals[_crystalID], #matches[_match]))
+		print(string.format("%s %s: crystal %s spree %d", _params.type, _cell, crystals[_crystalID], #matches[_match]))
 	end
 end
 
@@ -99,7 +99,7 @@ function tickClearMatches()
 			grid[_cell] = nil
 			_superCrystalCheck[_cell] = (_superCrystalCheck[_cell] or 0) + 1
 			if _superCrystalCheck[_cell] >= 2 then
-				print(string.format("%s got super crystal", _cell)) -- определяем место супер-кристалла на будущее (при помощи итерации таблицы checkDirections можно определить Т- или Г-образность, если вид кристалла будет зависиеть от этого)
+				print(string.format("%s got super crystal", _cell)) -- определяем место супер-кристалла на будущее (при помощи итерации таблицы checkDirections можно определить Т- или Г-образность, если вид кристалла будет зависеть от этого)
 			end
 		end
 	end
