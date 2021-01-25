@@ -17,6 +17,16 @@ end
 moveCount = 0 -- количество ходов
 tickCount = 0 -- количество действий поля
 
+-- вспомогательные функции
+
+function getTextBorder(_text)
+	local _header = string.format("| %s |", _text)
+	local _border = string.rep("=", string.len(_header))
+	return string.format("\n%s\n%s\n%s\n", _border, _header, _border)
+end
+
+-- главные функции
+
 function init() -- создание поля
 	grid = {} -- в каждой клетке поля будет указан индекс, ссылающийся на таблицу crystals
 	matches = {} -- готовые для удаления комбинации
@@ -28,7 +38,7 @@ end
 function tick() -- выполнение действий на поле
 	tickCount = tickCount + 1
 	if DEV_MODE then
-		io.write(string.format("\n==========================================\n[Tick %d]\n==========================================\n", tickCount))
+		io.write(getTextBorder(string.format("Tick %d", tickCount)))
 	end
 
 	tickPossibleMatches()
@@ -123,7 +133,7 @@ function tickClearMatches()
 
 	local _superCrystalCheck = {}
 
-	if (DEV_MODE or not isSilentTick) and #matches > 0 then print(string.format("\nFound %d match(es)", #matches)) end
+	if (DEV_MODE or not isSilentTick) and #matches > 0 then print(string.format("\n[Tick %d] Found %d match(es)", tickCount, #matches)) end
 
 	for _index, _matchCell in ipairs(matches) do
 		if DEV_MODE or not isSilentTick then
@@ -211,9 +221,18 @@ function mix(_emptyOnly) -- перемешивание поля
 end
 
 function dump() -- вывод поля на экран
-	local _header = string.format("| Move %d | Tick %d | Possible matches: %d |", moveCount, tickCount, #possibleMatches)
-	local _border = string.rep("=", string.len(_header))
-	io.write(string.format("\n%s\n%s\n%s\n", _border, _header, _border))
+	io.write(getTextBorder(string.format("Move %d | Tick %d | Possible matches: %d", moveCount, tickCount, #possibleMatches)))
+	if DEV_MODE then
+		io.write(string.format("%d match(es) possible:\n", #possibleMatches))
+		for _index, _data in ipairs(possibleMatches) do
+			io.write(string.format("%s [%s + %s + %s]", crystals[_data.crystalID], _data.cells[1], _data.cells[2], _data.cells[3]))
+			if _index % 3 == 0 then
+				io.write("\n")
+			else
+				io.write("   ")
+			end
+		end
+	end
 	io.write("\n")
 	for _y = -2, GRID_SIZE.y do
 		for _x = -2, GRID_SIZE.x do
@@ -237,12 +256,9 @@ if not DEV_MODE then
 	dump()
 end
 
+-- основной цикл игры
+
 while(true) do
-	if DEV_MODE then
-		for _index, _data in ipairs(possibleMatches) do
-			print(string.format("%02d. %s [%s + %s + %s]", _index, crystals[_data.crystalID], _data.cells[1], _data.cells[2], _data.cells[3]))
-		end
-	end
 	io.write("'m [x] [y] [d]' - move; 'd' - " .. (DEV_MODE and "disable" or "enable") .. " DEV_MODE; 'q' - exit: ")
 	local _input = io.read()
 
@@ -269,8 +285,7 @@ while(true) do
 
 	if _x and _y and _direction then
 		move({x = _x, y = _y}, _direction)
-	else
-		tick()
-		if not DEV_MODE then dump() end
+	else -- if not DEV_MODE then
+		dump()
 	end
 end
