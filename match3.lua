@@ -1,13 +1,18 @@
-DEV_MODE = false
+DEV_MODE = true
 GRID_SIZE = {x = 9, y = 9} -- поле 10х10; в ТЗ указаны значения координат поля с 0 (в луа индексы таблиц начинаются с 1), для оптимизации (недопуска в коде бессмысленных убавлений вида "GRID_SIZE.x - 1") отминусуем единичку прямо здесь. Разумеется можно "сдвигать" на -1 введённую координату при вводе команды на сдвиг кристалла, но может запутать при дебаге (особенно на крупных проектах)
 crystals = {"A", "B", "C", "D", "E", "F"} -- варианты графического отображения кристаллов
 
-checkDirections = {
-	{y = -1, check = {{y = 2}, {x = -1, y = 1}, {x = 1, y = 1}}},
-	{x = 1, check = {{x = -2}, {x = -1, y = -1}, {x = -1, y = 1}}},
-	{y = 1, check = {{y = -2}, {x = -1, y = -1}, {x = 1, y = -1}}},
-	{x = -1, check = {{x = 2}, {x = 1, y = -1}, {x = 1, y = 1}}},
+neighbours = {
+	{direction = "u", y = -1, check = {{y = 2}, {x = -1, y = 1}, {x = 1, y = 1}}, target = {y = 1}},
+	{direction = "r", x = 1, check = {{x = -2}, {x = -1, y = -1}, {x = -1, y = 1}}, target = {x = -1}},
+	{direction = "d", y = 1, check = {{y = -2}, {x = -1, y = -1}, {x = 1, y = -1}}, target = {y = -1}},
+	{direction = "l", x = -1, check = {{x = 2}, {x = 1, y = -1}, {x = 1, y = 1}}, target = {x = 1}},
 }
+
+moveDirections = {}
+for _index, _neighboursData in ipairs(neighbours) do
+	moveDirections[_neighboursData.direction] = _neighboursData
+end
 
 moveCount = 0 -- количество ходов
 tickCount = 0 -- количество действий поля
@@ -31,32 +36,11 @@ function tick() -- выполнение действий на поле
 		mix()
 	end
 
-	-- twoCellsmatches = {}
-	-- local _twoCellsmatchesFound = {}
-
-	-- for _y = 0, GRID_SIZE.y do
-		-- for _x = 0, GRID_SIZE.x do
-			-- local _cell = "x" .. _x .. "y" .. _y
-			-- for _index, _directionData in ipairs(checkDirections) do
-				-- local _directionCell = (_x + (_directionData.x or 0)) .. "_" .. (_y + (_directionData.y or 0))
-				-- local _directionCrystalID = grid[_directionCell]
-				-- if _directionCrystalID then
-					-- if grid[_cell] == grid[_directionCell] then
-						-- twoCellsmatches[#twoCellsmatches+1] = {_cell, _directionCell}
-						-- _twoCellsmatchesFound[_cell] = (_twoCellsmatchesFound[_cell] or 0) + 1
-						-- _twoCellsmatchesFound[_directionCell] = (_twoCellsmatchesFound[_directionCell] or 0) + 1
-					-- end
-				-- end
-			-- end
-		-- end
-	-- end
-
 	-- ищем комбинации
 
 	matches = {} -- обнуляем таблицу с комбинациями
 
 	-- проверяем допустимые комбинации по осям
-	if DEV_MODE then print("Detected matches:") end
 	tickMatchCheckGrid("x")
 	tickMatchCheckGrid("y")
 
@@ -73,12 +57,15 @@ end
 
 function tickPossibleMatches()
 	possibleMatches = {}
+	possibleMatchesInteract = {}
 
 	for _y = 0, GRID_SIZE.y do
 		for _x = 0, GRID_SIZE.x do
 			local _cell = "x" .. _x .. "y" .. _y
 			local _crystalID = grid[_cell]
-			for _index, _directionData in ipairs(checkDirections) do
+			for _index, _directionData in ipairs(neighbours) do
+				local _directionTargetCell = "x" .. (_x + (_directionData.target.x or 0)) .. "y" .. (_y + (_directionData.target.y or 0))
+
 				local _directionCell = "x" .. (_x + (_directionData.x or 0)) .. "y" .. (_y + (_directionData.y or 0))
 				local _directionCrystalID = grid[_directionCell]
 				if _crystalID == _directionCrystalID then
@@ -87,6 +74,10 @@ function tickPossibleMatches()
 						local _directionCheckCrystalID = grid[_directionCheckCell]
 						if _crystalID == _directionCheckCrystalID then
 							possibleMatches[#possibleMatches+1] = {crystalID = _crystalID, cells = {_cell, _directionCell, _directionCheckCell}}
+							if not possibleMatchesInteract[_directionCheckCell] then possibleMatchesInteract[_directionCheckCell] = {} end
+							if not possibleMatchesInteract[_directionTargetCell] then possibleMatchesInteract[_directionTargetCell] = {} end
+							possibleMatchesInteract[_directionCheckCell][_crystalID] = true
+							possibleMatchesInteract[_directionTargetCell][_crystalID] = true
 						end
 					end
 				end
@@ -124,8 +115,8 @@ function tickMatchCheckCell(_cell, _params) -- последовательная 
 		matches[_match] = {}
 	end
 	matches[_match][#matches[_match]+1] = _cell
-	if DEV_MODE and #matches[_match] >= 3 then
-		print(string.format("%s %s: crystal %s spree %d", _params.type, _cell, crystals[_crystalID], #matches[_match]))
+	if (DEV_MODE or not isSilentTick) and #matches[_match] >= 3 then
+		print(string.format("It's a match! %s %s: crystal %s match-%d", _params.type, _cell, crystals[_crystalID], #matches[_match]))
 	end
 end
 
@@ -142,11 +133,11 @@ function tickClearMatches()
 			grid[_cell] = nil
 			_superCrystalCheck[_cell] = (_superCrystalCheck[_cell] or 0) + 1
 			if DEV_MODE and _superCrystalCheck[_cell] >= 2 then
-				print(string.format("%s got super crystal", _cell)) -- определяем место супер-кристалла на будущее (при помощи итерации таблицы checkDirections можно определить Т- или Г-образность, если вид кристалла будет зависеть от этого)
+				print(string.format("%s got super crystal", _cell)) -- определяем место супер-кристалла на будущее (при помощи итерации таблицы neighbours можно определить Т- или Г-образность, если вид кристалла будет зависеть от этого)
 			end
 		end
 	end
-	
+
 	if DEV_MODE then dump() end
 
 	return _changes
@@ -179,7 +170,28 @@ function tickGravity()
 end
 
 function move(_coords, _direction) -- выполнение хода игрока
-	
+	if DEV_MODE then print("Moving crystals...") end
+	isSilentTick = false
+	local _sourceCell = "x" .. _coords.x .. "y" .. _coords.y
+	local _sourceCrystalID = grid[_sourceCell]
+	if possibleMatchesInteract[_sourceCell] and moveDirections[_direction] then
+		local _targetCell = "x" .. (_coords.x + (moveDirections[_direction].x or 0)) .. "y" .. (_coords.y + (moveDirections[_direction].y or 0))
+		local _targetCrystalID = grid[_targetCell]
+		if possibleMatchesInteract[_targetCell] and (possibleMatchesInteract[_targetCell][_sourceCrystalID] or possibleMatchesInteract[_sourceCell][_targetCrystalID]) then
+			moveCount = moveCount + 1
+
+			grid[_sourceCell] = _targetCrystalID
+			grid[_targetCell] = _sourceCrystalID
+			tick()
+			if not DEV_MODE then
+				dump()
+			end
+			return
+		else
+
+		end
+	end
+	print("[WARNING] No move made...")
 end
 
 function mix(_emptyOnly) -- перемешивание поля
@@ -193,6 +205,7 @@ function mix(_emptyOnly) -- перемешивание поля
 			end
 		end
 	end
+	if not _emptyOnly then isSilentTick = true end
 	if DEV_MODE then tickPossibleMatches() dump() end
 end
 
@@ -206,11 +219,7 @@ function dump() -- вывод поля на экран
 			if _y >= 0 and _x >= 0 then
 				local _cell = "x" .. _x .. "y" .. _y
 				local _crystalID = grid[_cell]
-				-- if tickCount % 2 == 0 then
-					io.write(_crystalID and crystals[_crystalID] or " ")
-				-- else
-					-- io.write(_crystalID and _twoCellsmatchesFound[_cell] or " ")
-				-- end
+				io.write(_crystalID and crystals[_crystalID] or " ")
 			else
 				io.write(((_x <= -1 and _y <= -1) and " ") or (_y == -2 and _x) or (_x == -2 and _y) or (_x == -1 and "|" or "-"))
 			end
@@ -222,8 +231,8 @@ function dump() -- вывод поля на экран
 end
 
 init()
+tick()
 if not DEV_MODE then
-	tick()
 	dump()
 end
 
@@ -244,17 +253,19 @@ while(true) do
 		end
 		if _command == "q" then
 			exit()
-		elseif not _x then
-			_x = _i
-		elseif not _y then
-			_y = _i
-		elseif not _direction then
-			_direction = _i
+		elseif _command == "m" then
+			if not _x then
+				_x = tonumber(_i)
+			elseif not _y then
+				_y = tonumber(_i)
+			elseif not _direction then
+				_direction = tostring(_i)
+			end
 		end
 	end
-	
+
 	if _x and _y and _direction then
-		move({_x, _y}, _direction)
+		move({x = _x, y = _y}, _direction)
 	else
 		tick()
 		if not DEV_MODE then dump() end
