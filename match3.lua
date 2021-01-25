@@ -1,4 +1,4 @@
-DEV_MODE = true
+-- DEV_MODE = true
 GRID_SIZE = {x = 9, y = 9} -- поле 10х10; в ТЗ указаны значения координат поля с 0 (в луа индексы таблиц начинаются с 1), для оптимизации (недопуска в коде бессмысленных убавлений вида "GRID_SIZE.x - 1") отминусуем единичку прямо здесь. Разумеется можно "сдвигать" на -1 введённую координату при вводе команды на сдвиг кристалла, но может запутать при дебаге (особенно на крупных проектах)
 crystals = {"A", "B", "C", "D", "E", "F"} -- варианты графического отображения кристаллов
 
@@ -34,6 +34,8 @@ function tick() -- выполнение действий на поле
 	tickPossibleMatches()
 	if #possibleMatches == 0 then
 		mix()
+		tick()
+		return
 	end
 
 	-- ищем комбинации
@@ -44,11 +46,7 @@ function tick() -- выполнение действий на поле
 	tickMatchCheckGrid("x")
 	tickMatchCheckGrid("y")
 
-	local _changes -- переменная для запуска следующего тика, если есть новые изменения
-
-	_changes = tickClearMatches() -- функция возвращает, были ли удаления
-
-	if _changes then
+	if tickClearMatches() then
 		tickGravity()
 		mix(true)
 		tick()
@@ -115,9 +113,9 @@ function tickMatchCheckCell(_cell, _params) -- последовательная 
 		matches[_match] = {}
 	end
 	matches[_match][#matches[_match]+1] = _cell
-	if (DEV_MODE or not isSilentTick) and #matches[_match] >= 3 then
-		print(string.format("It's a match! %s %s: crystal %s match-%d", _params.type, _cell, crystals[_crystalID], #matches[_match]))
-	end
+	-- if (DEV_MODE or not isSilentTick) and #matches[_match] >= 3 then
+		-- print(string.format("It's a match! %s %s: crystal %s match-%d", _params.type, _cell, crystals[_crystalID], #matches[_match]))
+	-- end
 end
 
 function tickClearMatches()
@@ -125,9 +123,12 @@ function tickClearMatches()
 
 	local _superCrystalCheck = {}
 
-	if DEV_MODE then print(string.format("Clearing %d match(es)...", #matches)) end
+	if (DEV_MODE or not isSilentTick) and #matches > 0 then print(string.format("\nFound %d match(es)", #matches)) end
 
 	for _index, _matchCell in ipairs(matches) do
+		if DEV_MODE or not isSilentTick then
+			print(string.format("Match %d: crystal %s match-%d", _index, grid[_matchCell[1]] and crystals[grid[_matchCell[1]]] or "-", #_matchCell))
+		end
 		for _index2, _cell in ipairs(_matchCell) do
 			_changes = true
 			grid[_cell] = nil
@@ -242,7 +243,7 @@ while(true) do
 			print(string.format("%02d. %s [%s + %s + %s]", _index, crystals[_data.crystalID], _data.cells[1], _data.cells[2], _data.cells[3]))
 		end
 	end
-	io.write("'m [x] [y] [d]' - move; 'q' - exit: ")
+	io.write("'m [x] [y] [d]' - move; 'd' - " .. (DEV_MODE and "disable" or "enable") .. " DEV_MODE; 'q' - exit: ")
 	local _input = io.read()
 
 	local _command, _x, _y, _direction
@@ -253,6 +254,8 @@ while(true) do
 		end
 		if _command == "q" then
 			exit()
+		elseif _command == "d" then
+			DEV_MODE = not DEV_MODE
 		elseif _command == "m" then
 			if not _x then
 				_x = tonumber(_i)
