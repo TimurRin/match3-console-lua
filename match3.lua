@@ -1,4 +1,10 @@
--- DEV_MODE = true -- режим разработчика, отображает каждый тик
+--==================================================
+--Match-3 [match3.lua]
+--Разработал Timur Moziev (code@timurrin.ru) (2021/01/24)
+-->>>> Простая имплементация жанра три-в-ряд, техническое задание для компании Red Brix Wall
+--==================================================
+
+-- DEV_MODE = true -- режим разработчика, отображает много промежуточной информации
 GRID_SIZE = {x = 9, y = 9} -- поле 10х10; в ТЗ указаны значения координат поля с 0 (в луа индексы таблиц начинаются с 1), для оптимизации (недопуска в коде бессмысленных убавлений вида "GRID_SIZE.x - 1") отминусуем единичку прямо здесь. Разумеется можно "сдвигать" на -1 введённую координату при вводе команды на сдвиг кристалла, но может запутать при дебаге (особенно на крупных проектах)
 
 crystals = { -- варианты графического отображения кристаллов + специальный, который не используется на данном этапе
@@ -23,7 +29,7 @@ for _index, _neighboursData in ipairs(neighbours) do
 end
 
 moveCount = 0 -- количество ходов
-tickCount = 0 -- количество действий поля (в данной реализации действием считается "проверка возможных рядов > проверка текущих рядов > ")
+tickCount = 0 -- количество действий поля (в данной реализации действием считается "проверка возможных рядов > проверка текущих рядов > удаление текущих рядов > смещение висящих кристаллов вниз > заполнение пустых клеток")
 
 -- вспомогательные функции
 
@@ -119,16 +125,16 @@ end
 function tickMatchCheckCell(_cellID, _params) -- последовательная проверка каждой клетки оси вынесено в отдельную функцию для наглядности
 	local _crystalID = grid[_cellID]
 	local _match = #matches
-	if not _crystalID or _params.crystalID ~= _crystalID then -- если при сплошой проверки оси попадается другой кристалл, или если мы ещё ничего не искали...
+	if not _crystalID or _params.crystalID ~= _crystalID then -- если при сплошной проверки оси попадается другой кристалл, или если мы ещё ничего не искали...
 		if _match == 0 then
 			_match = 1 -- если готовых рядов ещё нет -- значит даём первый номер
-		elseif matches[_match] and #matches[_match] >= 3 then -- если при сплошной проверке мы нашли ряд из трёх и более кристалов, то создаём новый ряд
+		elseif matches[_match] and #matches[_match] >= 3 then -- если при сплошной проверке мы нашли ряд из трёх и более кристаллов, то создаём новый ряд
 			_match = #matches + 1
 		end
 		_params.crystalID = _crystalID -- выставляем новый кристалл
 		matches[_match] = {} -- создаём новую группу
 	end
-	matches[_match][#matches[_match]+1] = _cellID -- добаввляем текущую клетку в потенциальный ряд
+	matches[_match][#matches[_match]+1] = _cellID -- добавляем текущую клетку в потенциальный ряд
 end
 
 function tickClearMatches() -- очищение готовых рядов
@@ -192,7 +198,7 @@ function move(_coords, _direction) -- выполнение хода игрока
 	isSilentTick = false
 	local _sourceCell = "x" .. _coords.x .. "y" .. _coords.y -- исходный кристалл, который мы двигаем в сторону
 	local _sourceCrystalID = grid[_sourceCell] -- вид кристалла, который мы двигаем
-	if possibleMatchesInteract[_sourceCell] and moveDirections[_direction] then -- если клетка участвует в потенциальном кристаллообмене и направление укзано верно
+	if possibleMatchesInteract[_sourceCell] and moveDirections[_direction] then -- если клетка участвует в потенциальном кристаллообмене и направление указано верно
 		local _targetCell = "x" .. (_coords.x + (moveDirections[_direction].x or 0)) .. "y" .. (_coords.y + (moveDirections[_direction].y or 0))
 		local _targetCrystalID = grid[_targetCell] -- то узнаём про кристалл в целевой клетке
 		if possibleMatchesInteract[_targetCell] and (possibleMatchesInteract[_targetCell][_sourceCrystalID] or possibleMatchesInteract[_sourceCell][_targetCrystalID]) then -- если они могут обменяться...
